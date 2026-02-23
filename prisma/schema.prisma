@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  customer
+  partner
+  influencer
+  employee
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String
+  name      String
+  role      Role      @default(customer)
+  avatar    String?
+  isActive  Boolean   @default(true)
+  lastLogin DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  reviews   Review[]
+  orders    Order[]
+}
+
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  slug        String    @unique
+  description String?   @db.Text
+  image       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  products    Product[]
+}
+
+model Brand {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  slug        String    @unique
+  logo        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  products    Product[]
+}
+
+model Product {
+  id                   Int             @id @default(autoincrement())
+  title                String
+  description          String          @db.Text
+  price                Float
+  discountPercentage   Float           @default(0)
+  rating               Float           @default(0)
+  stock                Int             @default(0)
+  
+  // Relations to newly added Category & Brand
+  brandId              Int?
+  brand                Brand?          @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  
+  categoryId           Int?
+  category             Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  
+  // Legacy String fields, optionally keep them for backward compatibility if the frontend relies on them strongly 
+  // without fetching relationships. But better to just update them or keep as cache.
+  categoryName         String?
+  brandName            String?
+
+  thumbnail            String
+  images               Json
+  tags                 Json
+  sku                  String          @unique
+  weight               Float           @default(0)
+  dimensions           Json
+  warrantyInformation  String?
+  shippingInformation  String?
+  availabilityStatus   String?
+  returnPolicy         String?
+  minimumOrderQuantity Int             @default(1)
+  barcode              String?
+  qrCode               String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  reviews              Review[]
+  orderItems           OrderItem[]
+}
+
+model Review {
+  id            Int      @id @default(autoincrement())
+  rating        Int
+  comment       String   @db.Text
+  date          DateTime @default(now())
+  
+  reviewerEmail String?
+  reviewerName  String?
+
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  productId     Int
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+enum OrderStatus {
+  pending
+  processing
+  shipped
+  delivered
+  cancelled
+}
+
+model Order {
+  id            String         @id @default(uuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id])
+  totalAmount   Float
+  status        OrderStatus    @default(pending)
+  shippingAddress Json?
+  billingAddress  Json?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  items         OrderItem[]
+}
+
+model OrderItem {
+  id        Int      @id @default(autoincrement())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  
+  quantity  Int
+  price     Float
+}
